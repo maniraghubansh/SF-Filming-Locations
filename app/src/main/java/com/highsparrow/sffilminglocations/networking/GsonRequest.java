@@ -2,6 +2,7 @@ package com.highsparrow.sffilminglocations.networking;
 
 import android.util.Log;
 
+import com.android.volley.AuthFailureError;
 import com.android.volley.NetworkResponse;
 import com.android.volley.ParseError;
 import com.android.volley.Request;
@@ -56,5 +57,15 @@ public class GsonRequest<T> extends Request<T> {
     @Override
     protected void deliverResponse(T response) {
         mListener.onResponse(response);
+    }
+
+    @Override
+    protected Map<String, String> getParams() throws AuthFailureError {
+        return mQueryParams != null ? mQueryParams : super.getParams();
+    }
+
+    @Override
+    public Map<String, String> getHeaders() throws AuthFailureError {
+        return mHttpHeaders != null ? mHttpHeaders : super.getHeaders();
     }
 }

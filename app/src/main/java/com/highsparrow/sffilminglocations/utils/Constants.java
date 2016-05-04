@@ -10,8 +10,10 @@ public final class Constants {
     public static final String LOCATIONS = "locations";
     public static final String LIKE = "like";
     public static final String BASE_URL = "https://data.sfgov.org/resource/wwmu-gmzc.json";
-    public static final String GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json?";
+    public static final String GEOCODING_URL = "https://maps.googleapis.com/maps/api/geocode/json";
     public static final String PARAM_ADDRESS = "address";
     public static final String PARAM_MAPS_API_KEY = "key";
-    public static final String MAPS_API_KEY = "AIzaSyB_yXhDmBD5Mq9kSPJ5c24rJI7_Vb0MHz4";
+    public static final String MAPS_API_KEY = "AIzaSyDeHtR72ALKq8UurrT6CLn1LPGu92tZjeo";
+    public static final String MAPS_GEOCODING_SERVER_KEY = "AIzaSyCa8ZUz12NnoKjiOhTAVqhErOLrcs6PVg0";
+    public static final String PARAM_LIMIT = "$limit";
 }

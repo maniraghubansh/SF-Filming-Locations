@@ -9,6 +9,7 @@ import java.util.ArrayList;
  * Created by High Sparrow on 03-05-2016.
  */
 public class SearchResponse implements Parcelable{
+
     private ArrayList<FilmingLocation> filmingLocations;
 
     protected SearchResponse(Parcel in) {

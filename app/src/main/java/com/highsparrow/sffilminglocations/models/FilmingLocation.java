@@ -37,7 +37,7 @@ public class FilmingLocation implements Parcelable{
     private String productionCompany;
 
     @SerializedName("release_year")
-    private String releaseYear;
+    private int releaseYear;
 
     private String title;
 
@@ -108,11 +108,11 @@ public class FilmingLocation implements Parcelable{
         this.productionCompany = productionCompany;
     }
 
-    public String getReleaseYear() {
+    public int getReleaseYear() {
         return releaseYear;
     }
 
-    public void setReleaseYear(String releaseYear) {
+    public void setReleaseYear(int releaseYear) {
         this.releaseYear = releaseYear;
     }
 

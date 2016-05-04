@@ -21,7 +21,7 @@ public class VolleySingleton {
 
     public RequestQueue getRequestQueue() {
         if(mRequestQueue == null)
-            mRequestQueue = Volley.newRequestQueue(mContext.getApplicationContext(), new OkHttpClient());
+            mRequestQueue = Volley.newRequestQueue(mContext.getApplicationContext());
         return mRequestQueue;
     }
 
