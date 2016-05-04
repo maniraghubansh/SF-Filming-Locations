@@ -5,18 +5,20 @@ import android.os.AsyncTask;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.support.v7.widget.AppCompatEditText;
+import android.support.v7.widget.AppCompatSpinner;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 
 import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
-import com.google.android.gms.common.api.Status;
-import com.google.android.gms.location.places.Place;
-import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
-import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -26,8 +28,8 @@ import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.highsparrow.sffilminglocations.R;
+import com.highsparrow.sffilminglocations.adapters.SearchAdapter;
 import com.highsparrow.sffilminglocations.models.FilmingLocation;
-import com.highsparrow.sffilminglocations.models.SearchResponse;
 import com.highsparrow.sffilminglocations.models.geocoding.AddressResult;
 import com.highsparrow.sffilminglocations.models.geocoding.GeoCodeResult;
 import com.highsparrow.sffilminglocations.networking.GsonRequest;
@@ -41,8 +43,11 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -51,21 +56,69 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private static final String TAG = MapsActivity.class.getSimpleName();
     private GoogleMap mMap;
     private AppCompatEditText mSearchEditText;
+    private RecyclerView mRecyclerView;
     private ArrayList<MarkerOptions> mMarkerOptions;
 //    private SearchResponse searchResponse;
-    private FilmingLocation[] filmingLocations;
-    private boolean dataDownloadFinished;
+    private ArrayList<FilmingLocation> mFilmingLocations;
     private static final int LIMIT = 10;
-    private int offset = 0;
+    private String mCurrentSearchFilter;
+    private String[] mSearchFilters = new String[]{"Movie", "Location", "Director"};
+    private Map<String, String> mQueryFilterMap = new HashMap<>(3);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
-        mSearchEditText = (AppCompatEditText) findViewById(R.id.edit_search_query);
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
         setupSearchEditText();
+        setupSpinner();
+    }
+
+    private void setupSearchEditText() {
+        mQueryFilterMap.put(mSearchFilters[0], Constants.TITLE);
+        mQueryFilterMap.put(mSearchFilters[1], Constants.LOCATIONS);
+        mQueryFilterMap.put(mSearchFilters[2], Constants.DIRECTOR);
+        mSearchEditText = (AppCompatEditText) findViewById(R.id.edit_search_query);
+        mSearchEditText.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                makeApiCall(mQueryFilterMap.get(mCurrentSearchFilter), String.valueOf(s));
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+
+            }
+        });
+        mRecyclerView = (RecyclerView) findViewById(R.id.recycler);
+        mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        SearchAdapter adapter = new SearchAdapter(this, new ArrayList<FilmingLocation>());
+        mRecyclerView.setAdapter(adapter);
+    }
+
+    private void setupSpinner() {
+        AppCompatSpinner spinner = (AppCompatSpinner) findViewById(R.id.spinner);
+        ArrayAdapter<CharSequence> adapter = new ArrayAdapter<CharSequence>(this, android.R.layout.simple_spinner_item, mSearchFilters);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                mCurrentSearchFilter = mSearchFilters[position];
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+
+            }
+        });
     }
 
     private String loadDataFromAssets() {
@@ -87,19 +140,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void makeApiCall(String searchOver, String searchQuery) {
         VolleySingleton.getInstance(this).getRequestQueue().cancelAll(this);
+        mMap.clear();
         Map<String, String> header = new HashMap<>();
         header.put(Constants.X_APP_TOKEN, Constants.SODA_API_KEY);
         Map<String, String> params = new HashMap<>();
-        params.put("$limit", String.valueOf(LIMIT));
-        params.put("$offset", String.valueOf(offset));
-//        params.put("$order", ":id");
+        Uri  uri;
         if(!TextUtils.isEmpty(searchQuery)) {
-            String queryParamValue = searchOver + Constants.LIKE + "%" + searchQuery + "%";
+            String queryParamValue = searchOver + " " + Constants.LIKE + " '%" + searchQuery + "%'";
+//            url = url + "?$where=" + queryParamValue;
             params.put(Constants.SOQL_WHERE, queryParamValue);
-        }
-        String url = Constants.BASE_URL + "?$limit=1241";
+            uri = Uri.parse(Constants.BASE_URL).buildUpon().appendQueryParameter(Constants.SOQL_WHERE, params.get(Constants.SOQL_WHERE)).build();
 
-        StringRequest request = new StringRequest(Request.Method.GET, url, header, params,
+        } else {
+            params.put("$limit", "1241");
+            uri = Uri.parse(Constants.BASE_URL).buildUpon().appendQueryParameter("$limit", "1241").build();
+//            url = url + "?$limit=1241";
+        }
+
+        StringRequest request = new StringRequest(Request.Method.GET, uri.toString(), header, params,
                 new Response.Listener<String>() {
                     @Override
                     public void onResponse(String response) {
@@ -127,12 +185,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private void updateMarkers(String json) {
         final GsonBuilder gsonBuilder = new GsonBuilder();
         final Gson gson = gsonBuilder.create();
-        filmingLocations = gson.fromJson(json, FilmingLocation[].class);
-
+        FilmingLocation[] searchResults = gson.fromJson(json, FilmingLocation[].class);
+        mFilmingLocations = new ArrayList<>(Arrays.asList(searchResults));
 //        mMarkerOptions.clear();
-        for (int i = 0; i < filmingLocations.length; i++) {
-            if(!TextUtils.isEmpty(filmingLocations[i].getLocations()))
-                getLatLngFromMapsApi(i, filmingLocations[i].getLocations());
+        for (int i = 0; i < searchResults.length; i++) {
+            if(!TextUtils.isEmpty(searchResults[i].getLocations()))
+                getLatLngFromMapsApi(i, searchResults[i].getLocations());
         }
     }
 
@@ -153,13 +211,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     for (int i = 0; i < response.getAddressResults().size(); i++) {
                         AddressResult addressResult = response.getAddressResults().get(i);
                         if(addressResult.belongsToSanFrancisco()){
-                            filmingLocations[position].setLatitude(addressResult.getGeometry().getLocation().getLat());
-                            filmingLocations[position].setLongitude(addressResult.getGeometry().getLocation().getLng());
+                            mFilmingLocations.get(position).setLatitude(addressResult.getGeometry().getLocation().getLat());
+                            mFilmingLocations.get(position).setLongitude(addressResult.getGeometry().getLocation().getLng());
                             mMap.addMarker(new MarkerOptions().
-                                    position(new LatLng(filmingLocations[position].getLatitude(),
-                                            filmingLocations[position].getLongitude())).
-                                    draggable(false).title(filmingLocations[position].getTitle()).
-                                    snippet(filmingLocations[position].getDescription()));
+                                    position(new LatLng(mFilmingLocations.get(position).getLatitude(),
+                                            mFilmingLocations.get(position).getLongitude())).
+                                    draggable(false).title(mFilmingLocations.get(position).getTitle()).
+                                    snippet(mFilmingLocations.get(position).getDescription()));
                             break;
                         }
                     }
@@ -171,38 +229,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 Log.i(TAG, error.toString());
             }
         });
+        geoCodeResultGsonRequest.setTag(this);
         VolleySingleton.getInstance(this).getRequestQueue().add(geoCodeResultGsonRequest);
     }
 
-    private void setupSearchEditText() {
-        mSearchEditText.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                makeApiCall(Constants.LOCATIONS, String.valueOf(s));
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-
-            }
-        });
-    }
-
-
-    /**
-     * Manipulates the map once available.
-     * This callback is triggered when the map is ready to be used.
-     * This is where we can add markers or lines, add listeners or move the camera. In this case,
-     * we just add a marker near Sydney, Australia.
-     * If Google Play services is not installed on the device, the user will be prompted to install
-     * it inside the SupportMapFragment. This method will only be triggered once the user has
-     * installed Google Play services and returned to the app.
-     */
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -229,7 +259,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         @Override
         protected void onPostExecute(String result) {
             Log.i(TAG, result);
-            filmingLocations = new Gson().fromJson(result, FilmingLocation[].class);
+//            mFilmingLocations = new Gson().fromJson(result, FilmingLocation[].class);
             updateMarkers(result);
         }
 

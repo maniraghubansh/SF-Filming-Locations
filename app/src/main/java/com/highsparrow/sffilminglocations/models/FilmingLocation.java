@@ -48,11 +48,11 @@ public class FilmingLocation implements Parcelable{
         if(TextUtils.isEmpty(secondActor) && TextUtils.isEmpty(thirdActor))
             actors = actors + firstActor;
         else if(TextUtils.isEmpty(thirdActor))
-            actors = actors + firstActor + "and " + secondActor;
+            actors = actors + firstActor + " and " + secondActor;
         else if(TextUtils.isEmpty(secondActor))
-            actors = actors + firstActor + "and " + thirdActor;
+            actors = actors + firstActor + " and " + thirdActor;
         else
-            actors = actors + firstActor + ", " + secondActor + "and " + thirdActor;
+            actors = actors + firstActor + ", " + secondActor + " and " + thirdActor;
 
         String description = "Directed by " + director + ", released in " + releaseYear + "." + actors + ".";
         if(!TextUtils.isEmpty(funFacts))

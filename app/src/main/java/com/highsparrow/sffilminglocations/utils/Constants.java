@@ -7,6 +7,7 @@ public final class Constants {
     public static final String X_APP_TOKEN = "X-APP-TOKEN";
     public static final String SODA_API_KEY = "nh6Q63TZDYG1fM5nj9ZvbAiGM";
     public static final String SOQL_WHERE = "$where";
+    public static final String TITLE = "title";
     public static final String LOCATIONS = "locations";
     public static final String LIKE = "like";
     public static final String BASE_URL = "https://data.sfgov.org/resource/wwmu-gmzc.json";
@@ -16,4 +17,5 @@ public final class Constants {
     public static final String MAPS_API_KEY = "AIzaSyDeHtR72ALKq8UurrT6CLn1LPGu92tZjeo";
     public static final String MAPS_GEOCODING_SERVER_KEY = "AIzaSyCa8ZUz12NnoKjiOhTAVqhErOLrcs6PVg0";
     public static final String PARAM_LIMIT = "$limit";
+    public static final String DIRECTOR = "director";
 }
