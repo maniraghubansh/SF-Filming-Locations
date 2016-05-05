@@ -148,37 +148,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             }
         });
-        RecyclerView mRecyclerView = (RecyclerView) findViewById(R.id.recycler);
-        mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        SearchAdapter adapter = new SearchAdapter(this, new ArrayList<FilmingLocation>());
-        mRecyclerView.setAdapter(adapter);
+//        RecyclerView mRecyclerView = (RecyclerView) findViewById(R.id.recycler);
+//        mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+//        SearchAdapter adapter = new SearchAdapter(this, new ArrayList<FilmingLocation>());
+//        mRecyclerView.setAdapter(adapter);
     }
-
-    private void searchInDb(String searchOver, String searchQuery) {
-        VolleySingleton.getInstance(this).getRequestQueue().cancelAll(this);
-        mFilmingLocations.clear();
-        mMap.clear();
-        Cursor cursor = new DBOpenHelper(this).getReadableDatabase().query(SFFilmingLocationsContract.FilmingLocationEntry.TABLE_NAME, null, searchOver + " LIKE ?",
-                new String[] {"%"+ searchQuery+ "%" }, null, null, null, null);
-        while (cursor.moveToNext()){
-            FilmingLocation filmingLocation = DBQueryHelper.populateFilmingLocationFromCursor(cursor);
-            mFilmingLocations.add(filmingLocation);
-        }
-        for (int i = 0; i < mFilmingLocations.size(); i++){
-            if( mFilmingLocations.get(i).getLatitude()==0.0 || mFilmingLocations.get(i).getLongitude()==0.0)
-                getLatLngFromMapsApi(mFilmingLocations.get(i));
-            else
-                addMarkerOnMap(mFilmingLocations.get(i));
-        }
-    }
-
-    private void addMarkerOnMap(FilmingLocation filmingLocation) {
-        mMap.addMarker(new MarkerOptions().
-                position(new LatLng(filmingLocation.getLatitude() + (Math.random()-0.5)/2000, filmingLocation.getLongitude() + (Math.random()-0.5)/2000)).
-                draggable(false).title(filmingLocation.getTitle()).
-                snippet(filmingLocation.getDescription()));
-    }
-
     private void setupSpinner() {
         AppCompatSpinner spinner = (AppCompatSpinner) findViewById(R.id.spinner);
         ArrayAdapter<CharSequence> adapter = new ArrayAdapter<CharSequence>(this, R.layout.item_spinner, mSearchFilters);
@@ -200,6 +174,24 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             }
         });
+    }
+
+    private void searchInDb(String searchOver, String searchQuery) {
+        VolleySingleton.getInstance(this).getRequestQueue().cancelAll(this);
+        mFilmingLocations.clear();
+        mMap.clear();
+        Cursor cursor = new DBOpenHelper(this).getReadableDatabase().query(SFFilmingLocationsContract.FilmingLocationEntry.TABLE_NAME, null, searchOver + " LIKE ?",
+                new String[] {"%"+ searchQuery+ "%" }, null, null, null, null);
+        while (cursor.moveToNext()){
+            FilmingLocation filmingLocation = DBQueryHelper.populateFilmingLocationFromCursor(cursor);
+            mFilmingLocations.add(filmingLocation);
+        }
+        for (int i = 0; i < mFilmingLocations.size(); i++){
+            if( mFilmingLocations.get(i).getLatitude()==0.0 || mFilmingLocations.get(i).getLongitude()==0.0)
+                getLatLngFromMapsApi(mFilmingLocations.get(i));
+            else
+                addMarkerOnMap(mFilmingLocations.get(i));
+        }
     }
 
     private void getLatLngFromMapsApi(final FilmingLocation filmingLocation) {
@@ -245,6 +237,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         contentValues.put(SFFilmingLocationsContract.FilmingLocationEntry.LONGITUDE, filmingLocation.getLongitude());
         getContentResolver().update(SFFilmingLocationsContract.FilmingLocationEntry.CONTENT_URI, contentValues,
                 SFFilmingLocationsContract.FilmingLocationEntry.LOCATIONS + " = ?", new String[]{filmingLocation.getLocations()});
+    }
+
+
+    private void addMarkerOnMap(FilmingLocation filmingLocation) {
+        mMap.addMarker(new MarkerOptions().
+                position(new LatLng(filmingLocation.getLatitude() + (Math.random()-0.5)/2000, filmingLocation.getLongitude() + (Math.random()-0.5)/2000)).
+                draggable(false).title(filmingLocation.getTitle()).
+                snippet(filmingLocation.getDescription()));
     }
 
     @Override
