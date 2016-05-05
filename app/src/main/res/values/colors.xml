@@ -6,4 +6,6 @@
     <color name="white">#FFFFFF</color>
     <color name="BL3">#666666</color>
     <color name="BL6">#CCCCCC</color>
+    <color name="BL1">#222222</color>
+    <color name="primaryBackground">#edebe4</color>
 </resources>

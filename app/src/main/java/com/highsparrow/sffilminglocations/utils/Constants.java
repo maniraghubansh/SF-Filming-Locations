@@ -18,4 +18,5 @@ public final class Constants {
     public static final String MAPS_GEOCODING_SERVER_KEY = "AIzaSyCa8ZUz12NnoKjiOhTAVqhErOLrcs6PVg0";
     public static final String PARAM_LIMIT = "$limit";
     public static final String DIRECTOR = "director";
+    public static final int SEARCH_QUERY_MIN_LENGTH = 2;
 }

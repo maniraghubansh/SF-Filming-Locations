@@ -1,11 +1,14 @@
 package com.highsparrow.sffilminglocations.activities;
 
+import android.app.ProgressDialog;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.AppCompatEditText;
 import android.support.v7.widget.AppCompatSpinner;
 import android.support.v7.widget.LinearLayoutManager;
@@ -26,10 +29,12 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.highsparrow.sffilminglocations.R;
+import com.highsparrow.sffilminglocations.adapters.CustomInfoWindowAdapter;
 import com.highsparrow.sffilminglocations.adapters.SearchAdapter;
 import com.highsparrow.sffilminglocations.database.DBOpenHelper;
 import com.highsparrow.sffilminglocations.database.DBQueryHelper;
@@ -56,18 +61,17 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private static final String TAG = MapsActivity.class.getSimpleName();
+    private ProgressDialog mProgressDialog;
     private static final String DATA_DOWNLOADED = "data_downloaded";
     private GoogleMap mMap;
-    private AppCompatEditText mSearchEditText;
-    private RecyclerView mRecyclerView;
     private ArrayList<FilmingLocation> mFilmingLocations = new ArrayList<>();
-    private static final int LIMIT = 10;
     private String mCurrentSearchFilter;
     private String[] mSearchFilters = new String[]{"Movie", "Location", "Director"};
     private Map<String, String> mQueryFilterMap = new HashMap<>(3);
+    private AppCompatEditText mSearchEditText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +86,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     private void downloadData() {
+        mProgressDialog = ProgressDialog.show(this, "Downloading Data", "Please wait while the data is downloaded", true, false);
         Map<String, String> header = new HashMap<>();
         header.put(Constants.X_APP_TOKEN, Constants.SODA_API_KEY);
         Map<String, String> params = new HashMap<>();
@@ -92,6 +97,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     @Override
                     public void onResponse(String response) {
                         Log.i(TAG, response);
+                        mProgressDialog.dismiss();
                         saveDataInDB(response);
                     }
                 }, new Response.ErrorListener() {
@@ -132,8 +138,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if(count>2)
+                if(count>Constants.SEARCH_QUERY_MIN_LENGTH) {
                     searchInDb(mQueryFilterMap.get(mCurrentSearchFilter), String.valueOf(s));
+                }
             }
 
             @Override
@@ -141,7 +148,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
         });
-        mRecyclerView = (RecyclerView) findViewById(R.id.recycler);
+        RecyclerView mRecyclerView = (RecyclerView) findViewById(R.id.recycler);
         mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         SearchAdapter adapter = new SearchAdapter(this, new ArrayList<FilmingLocation>());
         mRecyclerView.setAdapter(adapter);
@@ -167,21 +174,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void addMarkerOnMap(FilmingLocation filmingLocation) {
         mMap.addMarker(new MarkerOptions().
-                position(new LatLng(filmingLocation.getLatitude(), filmingLocation.getLongitude())).
+                position(new LatLng(filmingLocation.getLatitude() + (Math.random()-0.5)/2000, filmingLocation.getLongitude() + (Math.random()-0.5)/2000)).
                 draggable(false).title(filmingLocation.getTitle()).
                 snippet(filmingLocation.getDescription()));
     }
 
     private void setupSpinner() {
         AppCompatSpinner spinner = (AppCompatSpinner) findViewById(R.id.spinner);
-        ArrayAdapter<CharSequence> adapter = new ArrayAdapter<CharSequence>(this, android.R.layout.simple_spinner_item, mSearchFilters);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        ArrayAdapter<CharSequence> adapter = new ArrayAdapter<CharSequence>(this, R.layout.item_spinner, mSearchFilters);
+        adapter.setDropDownViewResource(R.layout.item_spinner_dropdown);
         spinner.setAdapter(adapter);
         spinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
 
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 mCurrentSearchFilter = mSearchFilters[position];
+                mSearchEditText.setHint("Search a " + mCurrentSearchFilter.toLowerCase());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    mSearchEditText.setShowSoftInputOnFocus(true);
+                }
             }
 
             @Override
@@ -239,7 +250,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.setInfoWindowAdapter(new CustomInfoWindowAdapter(this));
         LatLng sf = new LatLng(37.7749, -122.4194);
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sf));
+        LatLng sfSouthWest = new LatLng(37.5424472,-122.5698084);
+        LatLng sfNorthEast = new LatLng(37.8528105,-122.3906773);
+        try{
+            mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(new LatLngBounds(sfSouthWest, sfNorthEast), 0));
+        } catch (IllegalStateException e){
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(sf));
+//            mMap.animateCamera(CameraUpdateFactory.zoomTo(10));
+            Log.e(TAG, e.toString());
+        }
     }
 }

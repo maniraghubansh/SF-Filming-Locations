@@ -14,7 +14,8 @@
         <android.support.v7.widget.AppCompatSpinner
             android:id="@+id/spinner"
             android:layout_width="wrap_content"
-            android:layout_height="match_parent"/>
+            android:layout_height="match_parent"
+            android:layout_marginLeft="@dimen/padding_medium"/>
         <View
             android:id="@+id/ic_search"
             android:layout_width="32dp"
@@ -22,17 +23,17 @@
             android:visibility="gone"
             android:background="@drawable/places_ic_search"
             android:layout_centerVertical="true"
-            android:layout_marginLeft="@dimen/place_autocomplete_prediction_horizontal_margin"/>
+            android:layout_marginLeft="@dimen/padding_medium"/>
         <android.support.v7.widget.AppCompatEditText
             android:id="@+id/edit_search_query"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:hint="@string/search_a_location"
+            android:hint="@string/search_movie"
             android:layout_toRightOf="@+id/spinner"
             android:inputType="textCapWords"
             android:textColorHint="@color/BL6"
             android:textColor="@color/white"
-            android:layout_marginLeft="@dimen/place_autocomplete_prediction_horizontal_margin"
+            android:layout_marginLeft="@dimen/padding_medium"
             android:layout_marginRight="@dimen/actionbar_size"/>
     </RelativeLayout>
 
