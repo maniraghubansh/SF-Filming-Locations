@@ -7,7 +7,9 @@ When the app starts for the first time, all the data is downloaded from the [SOD
 The data from the above api contains only location names, not latitude or longitude. So a geocoding request is made to [Google Maps Geocoding api](https://developers.google.com/maps/documentation/geocoding/intro?csw=1#Geocoding) to get the latitude and longitude associated with a location and then it is shown on the map. Once the latitude and longitude of a location are received they are also saved locally in the database to reduce future network calls.
 
 # Future Tasks
-Implement custom markers and custom info window. Implement paging, 1000 results at a time, in requests to the SODA SFGOV api. Show more info, like movie poster, about a movie when user clicks on info window from [TheMovieDb](http://docs.themoviedb.apiary.io/#reference/search/searchmovie) api.
+- Implement custom markers and custom info window. 
+- Implement paging, say a 1000 results at a time, in requests to the SODA SFGOV api. 
+- Show more info, like movie poster, about a movie when user clicks on info window. Get data from [TheMovieDb](http://docs.themoviedb.apiary.io/#reference/search/searchmovie) api.
 
 #License
 The MIT License
