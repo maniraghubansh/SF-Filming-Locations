@@ -81,8 +81,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mapFragment.getMapAsync(this);
         setupSearchEditText();
         setupSpinner();
-        if(!getSharedPreferences(getPackageName(), MODE_PRIVATE).getBoolean(DATA_DOWNLOADED, false))
-            downloadData();
     }
 
     private void downloadData() {
@@ -116,6 +114,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         final Gson gson = gsonBuilder.create();
         FilmingLocation[] searchResults = gson.fromJson(response, FilmingLocation[].class);
         mFilmingLocations = new ArrayList<>(Arrays.asList(searchResults));
+        for (int i = 0; i < mFilmingLocations.size(); i++) {
+            getLatLngFromMapsApi(mFilmingLocations.get(i));
+        }
         ContentValues[] values = new ContentValues[mFilmingLocations.size()];
         for (int i = 0; i < mFilmingLocations.size(); i++) {
             ContentValues value = DBQueryHelper.putDataInContentValues(mFilmingLocations.get(i));
@@ -138,7 +139,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                if(count>Constants.SEARCH_QUERY_MIN_LENGTH) {
+                if(count>Constants.SEARCH_QUERY_MIN_LENGTH) {   // string length should be at least 3 for a meaningful search
                     searchInDb(mQueryFilterMap.get(mCurrentSearchFilter), String.valueOf(s));
                 }
             }
@@ -163,7 +164,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 mCurrentSearchFilter = mSearchFilters[position];
-                mSearchEditText.setHint("Search a " + mCurrentSearchFilter.toLowerCase());
+                mSearchEditText.setHint("Search a " + mCurrentSearchFilter.toLowerCase());          // change the hint showing in the edittext
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                     mSearchEditText.setShowSoftInputOnFocus(true);
                 }
@@ -180,8 +181,13 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         VolleySingleton.getInstance(this).getRequestQueue().cancelAll(this);
         mFilmingLocations.clear();
         mMap.clear();
-        Cursor cursor = new DBOpenHelper(this).getReadableDatabase().query(SFFilmingLocationsContract.FilmingLocationEntry.TABLE_NAME, null, searchOver + " LIKE ?",
-                new String[] {"%"+ searchQuery+ "%" }, null, null, null, null);
+        Cursor cursor;
+        if(TextUtils.isEmpty(searchQuery)){                                                         // show all locations
+            cursor = getContentResolver().query(SFFilmingLocationsContract.FilmingLocationEntry.CONTENT_URI, null, null, null, null);
+        } else {
+            cursor = new DBOpenHelper(this).getReadableDatabase().query(SFFilmingLocationsContract.FilmingLocationEntry.TABLE_NAME, null, searchOver + " LIKE ?",
+                    new String[]{"%" + searchQuery + "%"}, null, null, null, null);
+        }
         while (cursor.moveToNext()){
             FilmingLocation filmingLocation = DBQueryHelper.populateFilmingLocationFromCursor(cursor);
             mFilmingLocations.add(filmingLocation);
@@ -261,5 +267,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 //            mMap.animateCamera(CameraUpdateFactory.zoomTo(10));
             Log.e(TAG, e.toString());
         }
+
+        if(!getSharedPreferences(getPackageName(), MODE_PRIVATE).getBoolean(DATA_DOWNLOADED, false))
+            downloadData();
+        else
+            searchInDb("", "");
     }
 }

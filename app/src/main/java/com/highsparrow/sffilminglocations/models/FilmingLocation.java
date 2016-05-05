@@ -109,7 +109,7 @@ public class FilmingLocation implements Parcelable{
         else
             actors = actors + firstActor + ", " + secondActor + " and " + thirdActor;
 
-        String description = "Director - " + director + ", year - " + releaseYear + "." + actors + ".";
+        String description = "Location - " + locations + ", director - " + director + ", year - " + releaseYear + "." + actors + ".";
         if(!TextUtils.isEmpty(funFacts))
             description += " Fun fact - " + funFacts + ".";
         return description;
