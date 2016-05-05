@@ -38,6 +38,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <provider
+            android:authorities="com.highsparrow.sffilminglocations"
+            android:name=".database.DBQueryHelper"
+            android:exported="false"/>
     </application>
 
 </manifest>

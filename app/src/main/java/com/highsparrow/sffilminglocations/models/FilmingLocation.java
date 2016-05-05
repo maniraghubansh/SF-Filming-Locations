@@ -37,11 +37,66 @@ public class FilmingLocation implements Parcelable{
     private String productionCompany;
 
     @SerializedName("release_year")
-    private int releaseYear;
+    private String releaseYear;
 
     private String title;
 
     private String writer;
+
+    private String posterUrl;
+
+    public FilmingLocation() {
+    }
+
+    protected FilmingLocation(Parcel in) {
+        latitude = in.readDouble();
+        longitude = in.readDouble();
+        firstActor = in.readString();
+        secondActor = in.readString();
+        thirdActor = in.readString();
+        director = in.readString();
+        distributor = in.readString();
+        funFacts = in.readString();
+        locations = in.readString();
+        productionCompany = in.readString();
+        releaseYear = in.readString();
+        title = in.readString();
+        writer = in.readString();
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeDouble(latitude);
+        dest.writeDouble(longitude);
+        dest.writeString(firstActor);
+        dest.writeString(secondActor);
+        dest.writeString(thirdActor);
+        dest.writeString(director);
+        dest.writeString(distributor);
+        dest.writeString(funFacts);
+        dest.writeString(locations);
+        dest.writeString(productionCompany);
+        dest.writeString(releaseYear);
+        dest.writeString(title);
+        dest.writeString(writer);
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    public static final Creator<FilmingLocation> CREATOR = new Creator<FilmingLocation>() {
+        @Override
+        public FilmingLocation createFromParcel(Parcel in) {
+            return new FilmingLocation(in);
+        }
+
+        @Override
+        public FilmingLocation[] newArray(int size) {
+            return new FilmingLocation[size];
+        }
+    };
 
     public String getDescription(){
         String actors = " Starring ";
@@ -93,7 +148,7 @@ public class FilmingLocation implements Parcelable{
     }
 
     public String getLocations() {
-        return locations;
+        return locations == null ? "" : locations;
     }
 
     public void setLocations(String locations) {
@@ -108,11 +163,11 @@ public class FilmingLocation implements Parcelable{
         this.productionCompany = productionCompany;
     }
 
-    public int getReleaseYear() {
+    public String getReleaseYear() {
         return releaseYear;
     }
 
-    public void setReleaseYear(int releaseYear) {
+    public void setReleaseYear(String releaseYear) {
         this.releaseYear = releaseYear;
     }
 
@@ -130,31 +185,6 @@ public class FilmingLocation implements Parcelable{
 
     public void setWriter(String writer) {
         this.writer = writer;
-    }
-
-    public static final Creator<FilmingLocation> CREATOR = new Creator<FilmingLocation>() {
-        @Override
-        public FilmingLocation createFromParcel(Parcel in) {
-            return new FilmingLocation(in);
-        }
-
-        @Override
-        public FilmingLocation[] newArray(int size) {
-            return new FilmingLocation[size];
-        }
-    };
-
-
-    public FilmingLocation(Parcel in) {
-    }
-
-    @Override
-    public int describeContents() {
-        return 0;
-    }
-
-    @Override
-    public void writeToParcel(Parcel dest, int flags) {
     }
 
     public double getLatitude() {
@@ -187,5 +217,13 @@ public class FilmingLocation implements Parcelable{
 
     public void setFunFacts(String funFacts) {
         this.funFacts = funFacts;
+    }
+
+    public String getPosterUrl() {
+        return posterUrl;
+    }
+
+    public void setPosterUrl(String posterUrl) {
+        this.posterUrl = posterUrl;
     }
 }

@@ -1,5 +1,7 @@
 package com.highsparrow.sffilminglocations.activities;
 
+import android.content.ContentValues;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.support.v4.app.FragmentActivity;
@@ -29,6 +31,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.highsparrow.sffilminglocations.R;
 import com.highsparrow.sffilminglocations.adapters.SearchAdapter;
+import com.highsparrow.sffilminglocations.database.DBOpenHelper;
+import com.highsparrow.sffilminglocations.database.DBQueryHelper;
+import com.highsparrow.sffilminglocations.database.SFFilmingLocationsContract;
 import com.highsparrow.sffilminglocations.models.FilmingLocation;
 import com.highsparrow.sffilminglocations.models.geocoding.AddressResult;
 import com.highsparrow.sffilminglocations.models.geocoding.GeoCodeResult;
@@ -54,12 +59,11 @@ import java.util.Map;
 public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
 
     private static final String TAG = MapsActivity.class.getSimpleName();
+    private static final String DATA_DOWNLOADED = "data_downloaded";
     private GoogleMap mMap;
     private AppCompatEditText mSearchEditText;
     private RecyclerView mRecyclerView;
-    private ArrayList<MarkerOptions> mMarkerOptions;
-//    private SearchResponse searchResponse;
-    private ArrayList<FilmingLocation> mFilmingLocations;
+    private ArrayList<FilmingLocation> mFilmingLocations = new ArrayList<>();
     private static final int LIMIT = 10;
     private String mCurrentSearchFilter;
     private String[] mSearchFilters = new String[]{"Movie", "Location", "Director"};
@@ -73,6 +77,46 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mapFragment.getMapAsync(this);
         setupSearchEditText();
         setupSpinner();
+        if(!getSharedPreferences(getPackageName(), MODE_PRIVATE).getBoolean(DATA_DOWNLOADED, false))
+            downloadData();
+    }
+
+    private void downloadData() {
+        Map<String, String> header = new HashMap<>();
+        header.put(Constants.X_APP_TOKEN, Constants.SODA_API_KEY);
+        Map<String, String> params = new HashMap<>();
+        Uri  uri = Uri.parse(Constants.BASE_URL).buildUpon().appendQueryParameter("$limit", "1241").build();
+
+        StringRequest request = new StringRequest(Request.Method.GET, uri.toString(), header, params,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Log.i(TAG, response);
+                        saveDataInDB(response);
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+
+            }
+        });
+
+        request.setTag(this);
+        VolleySingleton.getInstance(this).getRequestQueue().add(request);
+    }
+
+    private void saveDataInDB(String response) {
+        final GsonBuilder gsonBuilder = new GsonBuilder();
+        final Gson gson = gsonBuilder.create();
+        FilmingLocation[] searchResults = gson.fromJson(response, FilmingLocation[].class);
+        mFilmingLocations = new ArrayList<>(Arrays.asList(searchResults));
+        ContentValues[] values = new ContentValues[mFilmingLocations.size()];
+        for (int i = 0; i < mFilmingLocations.size(); i++) {
+            ContentValues value = DBQueryHelper.putDataInContentValues(mFilmingLocations.get(i));
+            values[i] = value;
+        }
+        if(getContentResolver().bulkInsert(SFFilmingLocationsContract.FilmingLocationEntry.CONTENT_URI, values)>0)
+            getSharedPreferences(getPackageName(), MODE_PRIVATE).edit().putBoolean(DATA_DOWNLOADED, true).commit();
     }
 
     private void setupSearchEditText() {
@@ -88,7 +132,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                makeApiCall(mQueryFilterMap.get(mCurrentSearchFilter), String.valueOf(s));
+                if(count>2)
+                    searchInDb(mQueryFilterMap.get(mCurrentSearchFilter), String.valueOf(s));
             }
 
             @Override
@@ -100,6 +145,31 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         SearchAdapter adapter = new SearchAdapter(this, new ArrayList<FilmingLocation>());
         mRecyclerView.setAdapter(adapter);
+    }
+
+    private void searchInDb(String searchOver, String searchQuery) {
+        VolleySingleton.getInstance(this).getRequestQueue().cancelAll(this);
+        mFilmingLocations.clear();
+        mMap.clear();
+        Cursor cursor = new DBOpenHelper(this).getReadableDatabase().query(SFFilmingLocationsContract.FilmingLocationEntry.TABLE_NAME, null, searchOver + " LIKE ?",
+                new String[] {"%"+ searchQuery+ "%" }, null, null, null, null);
+        while (cursor.moveToNext()){
+            FilmingLocation filmingLocation = DBQueryHelper.populateFilmingLocationFromCursor(cursor);
+            mFilmingLocations.add(filmingLocation);
+        }
+        for (int i = 0; i < mFilmingLocations.size(); i++){
+            if( mFilmingLocations.get(i).getLatitude()==0.0 || mFilmingLocations.get(i).getLongitude()==0.0)
+                getLatLngFromMapsApi(mFilmingLocations.get(i));
+            else
+                addMarkerOnMap(mFilmingLocations.get(i));
+        }
+    }
+
+    private void addMarkerOnMap(FilmingLocation filmingLocation) {
+        mMap.addMarker(new MarkerOptions().
+                position(new LatLng(filmingLocation.getLatitude(), filmingLocation.getLongitude())).
+                draggable(false).title(filmingLocation.getTitle()).
+                snippet(filmingLocation.getDescription()));
     }
 
     private void setupSpinner() {
@@ -121,82 +191,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
     }
 
-    private String loadDataFromAssets() {
-        String json;
-        try {
-            InputStream is = getAssets().open("list.json");
-            int size = is.available();
-            byte[] buffer = new byte[size];
-            is.read(buffer);
-            is.close();
-            json = new String(buffer, "UTF-8");
-        } catch (IOException ex) {
-            ex.printStackTrace();
-            return null;
-        }
-        Log.i(TAG, json);
-        return json;
-    }
-
-    private void makeApiCall(String searchOver, String searchQuery) {
-        VolleySingleton.getInstance(this).getRequestQueue().cancelAll(this);
-        mMap.clear();
-        Map<String, String> header = new HashMap<>();
-        header.put(Constants.X_APP_TOKEN, Constants.SODA_API_KEY);
-        Map<String, String> params = new HashMap<>();
-        Uri  uri;
-        if(!TextUtils.isEmpty(searchQuery)) {
-            String queryParamValue = searchOver + " " + Constants.LIKE + " '%" + searchQuery + "%'";
-//            url = url + "?$where=" + queryParamValue;
-            params.put(Constants.SOQL_WHERE, queryParamValue);
-            uri = Uri.parse(Constants.BASE_URL).buildUpon().appendQueryParameter(Constants.SOQL_WHERE, params.get(Constants.SOQL_WHERE)).build();
-
-        } else {
-            params.put("$limit", "1241");
-            uri = Uri.parse(Constants.BASE_URL).buildUpon().appendQueryParameter("$limit", "1241").build();
-//            url = url + "?$limit=1241";
-        }
-
-        StringRequest request = new StringRequest(Request.Method.GET, uri.toString(), header, params,
-                new Response.Listener<String>() {
-                    @Override
-                    public void onResponse(String response) {
-                        Log.i(TAG, response);
-//                        searchResponse = response;
-//                        offset += LIMIT;
-
-//                        if(response.getFilmingLocations().size()<LIMIT) {
-//                            makeApiCall("", "");
-//                            dataDownloadFinished = true;
-//                        }
-                        updateMarkers(response);
-                    }
-                }, new Response.ErrorListener() {
-            @Override
-            public void onErrorResponse(VolleyError error) {
-
-            }
-        });
-
-        request.setTag(this);
-        VolleySingleton.getInstance(this).getRequestQueue().add(request);
-    }
-
-    private void updateMarkers(String json) {
-        final GsonBuilder gsonBuilder = new GsonBuilder();
-        final Gson gson = gsonBuilder.create();
-        FilmingLocation[] searchResults = gson.fromJson(json, FilmingLocation[].class);
-        mFilmingLocations = new ArrayList<>(Arrays.asList(searchResults));
-//        mMarkerOptions.clear();
-        for (int i = 0; i < searchResults.length; i++) {
-            if(!TextUtils.isEmpty(searchResults[i].getLocations()))
-                getLatLngFromMapsApi(i, searchResults[i].getLocations());
-        }
-    }
-
-    private void getLatLngFromMapsApi(final int position, String locations) {
+    private void getLatLngFromMapsApi(final FilmingLocation filmingLocation) {
         Map<String, String> headers = new HashMap<>();
         Map<String, String> params = new HashMap<>();
+        String locations = filmingLocation.getLocations();
         params.put(Constants.PARAM_ADDRESS, locations);
         params.put(Constants.PARAM_MAPS_API_KEY, Constants.MAPS_API_KEY);
         locations.replaceAll("\\(", "+");
@@ -211,13 +209,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     for (int i = 0; i < response.getAddressResults().size(); i++) {
                         AddressResult addressResult = response.getAddressResults().get(i);
                         if(addressResult.belongsToSanFrancisco()){
-                            mFilmingLocations.get(position).setLatitude(addressResult.getGeometry().getLocation().getLat());
-                            mFilmingLocations.get(position).setLongitude(addressResult.getGeometry().getLocation().getLng());
-                            mMap.addMarker(new MarkerOptions().
-                                    position(new LatLng(mFilmingLocations.get(position).getLatitude(),
-                                            mFilmingLocations.get(position).getLongitude())).
-                                    draggable(false).title(mFilmingLocations.get(position).getTitle()).
-                                    snippet(mFilmingLocations.get(position).getDescription()));
+                            filmingLocation.setLatitude(addressResult.getGeometry().getLocation().getLat());
+                            filmingLocation.setLongitude(addressResult.getGeometry().getLocation().getLng());
+                            addMarkerOnMap(filmingLocation);
+                            updateDataInDb(filmingLocation);
                             break;
                         }
                     }
@@ -233,74 +228,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         VolleySingleton.getInstance(this).getRequestQueue().add(geoCodeResultGsonRequest);
     }
 
+    private void updateDataInDb(FilmingLocation filmingLocation) {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(SFFilmingLocationsContract.FilmingLocationEntry.LATITUDE, filmingLocation.getLatitude());
+        contentValues.put(SFFilmingLocationsContract.FilmingLocationEntry.LONGITUDE, filmingLocation.getLongitude());
+        getContentResolver().update(SFFilmingLocationsContract.FilmingLocationEntry.CONTENT_URI, contentValues,
+                SFFilmingLocationsContract.FilmingLocationEntry.LOCATIONS + " = ?", new String[]{filmingLocation.getLocations()});
+    }
+
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
         LatLng sf = new LatLng(37.7749, -122.4194);
-//        mMap.addMarker(new MarkerOptions().position(sf).title("Marker in San Francisco"));
         mMap.moveCamera(CameraUpdateFactory.newLatLng(sf));
-//        new DownloadDataTask().execute(Constants.BASE_URL);
-//        updateMarkers(loadDataFromAssets());
-        makeApiCall("", "");
     }
-
-    private class DownloadDataTask extends AsyncTask<String, Void, String> {
-        @Override
-        protected String doInBackground(String... urls) {
-
-            // params comes from the execute() call: params[0] is the url.
-            try {
-                return downloadUrl(urls[0]);
-            } catch (IOException e) {
-                return "Unable to retrieve web page. URL may be invalid.";
-            }
-        }
-        // onPostExecute displays the results of the AsyncTask.
-        @Override
-        protected void onPostExecute(String result) {
-            Log.i(TAG, result);
-//            mFilmingLocations = new Gson().fromJson(result, FilmingLocation[].class);
-            updateMarkers(result);
-        }
-
-        private String downloadUrl(String myurl) throws IOException {
-            InputStream is = null;
-            // Only display the first 500 characters of the retrieved
-            // web page content.
-            int len = 50000;
-
-            try {
-                URL url = new URL(myurl);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setReadTimeout(100000 /* milliseconds */);
-                conn.setConnectTimeout(150000 /* milliseconds */);
-                conn.setRequestMethod("GET");
-                conn.setDoInput(true);
-                // Starts the query
-                conn.connect();
-                int response = conn.getResponseCode();
-                Log.d(TAG, "The response is: " + response);
-                is = conn.getInputStream();
-
-                // Convert the InputStream into a string
-                String contentAsString = readIt(is, len);
-                return contentAsString;
-
-                // Makes sure that the InputStream is closed after the app is
-                // finished using it.
-            } finally {
-                if (is != null) {
-                    is.close();
-                }
-            }
-        }
-        public String readIt(InputStream stream, int len) throws IOException, UnsupportedEncodingException {
-            Reader reader = null;
-            reader = new InputStreamReader(stream, "UTF-8");
-            char[] buffer = new char[len];
-            reader.read(buffer);
-            return new String(buffer);
-        }
-    }
-
 }
